@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { createBookingNotification } from '@/lib/notifications';
+import { BookingStatus } from '@prisma/client';
 
 const bookingSchema = z.object({
   eventId: z.string(),
@@ -57,36 +58,26 @@ export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    // If userId is provided and user is admin, get bookings for that user
-    // Otherwise, get bookings for the current user
     const bookings = await prisma.booking.findMany({
       where: {
-        userId: userId && session.user.role === "ADMIN" ? userId : session.user.id,
+        userId: session.user.id,
       },
       include: {
         event: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
     return NextResponse.json(bookings);
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch bookings" },
-      { status: 500 }
-    );
+    console.error('[BOOKINGS_GET]', error);
+    return new NextResponse('Internal error', { status: 500 });
   }
 }
 
@@ -98,17 +89,16 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, status } = body;
+    const { bookingId, status } = body;
 
-    if (!id || !status) {
-      return new NextResponse('Booking ID and status are required', { status: 400 });
+    if (!bookingId || !status) {
+      return new NextResponse('Missing required fields', { status: 400 });
     }
 
     const booking = await prisma.booking.findUnique({
-      where: { id },
+      where: { id: bookingId },
       include: {
         event: true,
-        user: true,
       },
     });
 
@@ -117,16 +107,15 @@ export async function PATCH(request: Request) {
     }
 
     // Only event organizer can update booking status
-    if (booking.event.userId !== session.user.id) {
+    if (booking.event.organizerId !== session.user.id) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
     const updatedBooking = await prisma.booking.update({
-      where: { id },
-      data: { status },
+      where: { id: bookingId },
+      data: { status: status as BookingStatus },
       include: {
         event: true,
-        user: true,
       },
     });
 
@@ -139,7 +128,51 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updatedBooking);
   } catch (error) {
-    console.error('Error updating booking:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error('[BOOKINGS_PATCH]', error);
+    return new NextResponse('Internal error', { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const bookingId = searchParams.get('bookingId');
+
+    if (!bookingId) {
+      return new NextResponse('Booking ID is required', { status: 400 });
+    }
+
+    // Get booking with event details
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        event: true,
+      },
+    });
+
+    if (!booking) {
+      return new NextResponse('Booking not found', { status: 404 });
+    }
+
+    // Only booking owner or event organizer can delete booking
+    if (booking.userId !== session.user.id && booking.event.organizerId !== session.user.id) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // Delete booking
+    await prisma.booking.delete({
+      where: { id: bookingId },
+    });
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error('[BOOKINGS_DELETE]', error);
+    return new NextResponse('Internal error', { status: 500 });
   }
 } 
