@@ -5,13 +5,14 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Search, Calendar, User, Ticket, CreditCard } from 'lucide-react';
 import { updateBookingStatus, deleteBooking } from './actions';
+import { BookingStatus } from '@prisma/client';
 
 interface BookingWithDetails {
   id: string;
   userId: string;
   eventId: string;
   quantity: number;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+  status: BookingStatus;
   createdAt: Date;
   updatedAt: Date;
   user: {
@@ -30,7 +31,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleStatusChange = async (bookingId: string, newStatus: 'PENDING' | 'CONFIRMED' | 'CANCELLED') => {
+  const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
     try {
       await updateBookingStatus(bookingId, newStatus);
       // Refresh bookings after status update
@@ -128,7 +129,7 @@ export default function BookingsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : 
+                      ${booking.status === 'PAID' ? 'bg-green-100 text-green-800' : 
                         booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
                         'bg-yellow-100 text-yellow-800'}`}>
                       {booking.status}
@@ -138,12 +139,13 @@ export default function BookingsPage() {
                     <div className="flex space-x-2">
                       <select
                         value={booking.status}
-                        onChange={(e) => handleStatusChange(booking.id, e.target.value as 'PENDING' | 'CONFIRMED' | 'CANCELLED')}
+                        onChange={(e) => handleStatusChange(booking.id, e.target.value as BookingStatus)}
                         className="rounded-md border-gray-300 text-sm"
                       >
                         <option value="PENDING">Pending</option>
-                        <option value="CONFIRMED">Confirmed</option>
+                        <option value="PAID">Paid</option>
                         <option value="CANCELLED">Cancelled</option>
+                        <option value="COMPLETED">Completed</option>
                       </select>
                       <button
                         onClick={() => handleDelete(booking.id)}

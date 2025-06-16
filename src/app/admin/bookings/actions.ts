@@ -2,6 +2,7 @@
 
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { BookingStatus } from '@prisma/client';
 
 export async function getBookings() {
   try {
@@ -21,7 +22,7 @@ export async function getBookings() {
   }
 }
 
-export async function updateBookingStatus(bookingId: string, status: 'PENDING' | 'CONFIRMED' | 'CANCELLED') {
+export async function updateBookingStatus(bookingId: string, status: BookingStatus) {
   try {
     const booking = await db.booking.update({
       where: {
