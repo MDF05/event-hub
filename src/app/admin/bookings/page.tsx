@@ -1,16 +1,19 @@
-import { prisma } from '@/lib/prisma';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+"use client";
+
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Search, Calendar, User, Ticket, CreditCard } from 'lucide-react';
-import { handleUpdateBookingStatus } from './actions';
+import { updateBookingStatus, deleteBooking } from './actions';
 
 interface BookingWithDetails {
   id: string;
-  status: string;
+  userId: string;
+  eventId: string;
+  quantity: number;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
   createdAt: Date;
+  updatedAt: Date;
   user: {
     name: string;
     email: string;
@@ -22,136 +25,139 @@ interface BookingWithDetails {
   };
 }
 
-export default async function AdminBookingsPage() {
-  const bookings = await prisma.booking.findMany({
-    include: {
-      user: {
-        select: {
-          name: true,
-          email: true,
-        },
-      },
-      event: {
-        select: {
-          title: true,
-          date: true,
-          price: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  }) as unknown as BookingWithDetails[];
+export default function BookingsPage() {
+  const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleStatusChange = async (bookingId: string, newStatus: 'PENDING' | 'CONFIRMED' | 'CANCELLED') => {
+    try {
+      await updateBookingStatus(bookingId, newStatus);
+      // Refresh bookings after status update
+      // You might want to implement a refresh function here
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+    }
+  };
+
+  const handleDelete = async (bookingId: string) => {
+    try {
+      await deleteBooking(bookingId);
+      // Refresh bookings after deletion
+      // You might want to implement a refresh function here
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+    }
+  };
+
+  const filteredBookings = bookings.filter(booking => 
+    booking.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    booking.event.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Bookings</h1>
-      </div>
-
-      <div className="flex gap-4 items-center">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Search bookings..."
-              className="pl-10"
-            />
-          </div>
+    <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Bookings Management</h1>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Search bookings..."
+            className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        <Select>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="PAID">Paid</SelectItem>
-            <SelectItem value="CANCELLED">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline">Apply Filters</Button>
       </div>
 
-      <div className="border rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booked At</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {bookings.map((booking) => (
-              <tr key={booking.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900 flex items-center">
-                    <User className="h-4 w-4 mr-2 text-gray-400" />
-                    {booking.user.name}
-                  </div>
-                  <div className="text-sm text-gray-500">{booking.user.email}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900 flex items-center">
-                    <Ticket className="h-4 w-4 mr-2 text-gray-400" />
-                    {booking.event.title}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500 flex items-center">
-                    <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                    {format(new Date(booking.event.date), 'PPP', { locale: id })}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500 flex items-center">
-                    <CreditCard className="h-4 w-4 mr-2 text-gray-400" />
-                    {new Intl.NumberFormat('id-ID', {
-                      style: 'currency',
-                      currency: 'IDR',
-                    }).format(booking.event.price)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    booking.status === 'PAID'
-                      ? 'bg-green-100 text-green-800'
-                      : booking.status === 'PENDING'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {booking.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {format(new Date(booking.createdAt), 'PPP', { locale: id })}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <form action={handleUpdateBookingStatus}>
-                    <input type="hidden" name="bookingId" value={booking.id} />
-                    <input type="hidden" name="currentStatus" value={booking.status} />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="submit"
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      {booking.status === 'PENDING' ? 'Mark as Paid' : 'Update Status'}
-                    </Button>
-                  </form>
-                </td>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Event
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quantity
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredBookings.map((booking) => (
+                <tr key={booking.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{booking.user.name}</div>
+                        <div className="text-sm text-gray-500">{booking.user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.event.title}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {format(new Date(booking.event.date), 'PPP', { locale: id })}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{booking.quantity}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      Rp {(booking.quantity * booking.event.price).toLocaleString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : 
+                        booking.status === 'CANCELLED' ? 'bg-red-100 text-red-800' : 
+                        'bg-yellow-100 text-yellow-800'}`}>
+                      {booking.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <select
+                        value={booking.status}
+                        onChange={(e) => handleStatusChange(booking.id, e.target.value as 'PENDING' | 'CONFIRMED' | 'CANCELLED')}
+                        className="rounded-md border-gray-300 text-sm"
+                      >
+                        <option value="PENDING">Pending</option>
+                        <option value="CONFIRMED">Confirmed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                      </select>
+                      <button
+                        onClick={() => handleDelete(booking.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
