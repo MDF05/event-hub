@@ -1,27 +1,25 @@
-import { prisma } from '@/lib/prisma';
-
-type NotificationType = 'BOOKING_UPDATE' | 'EVENT_REMINDER' | 'SYSTEM';
-
-interface CreateNotificationParams {
-  userId: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-}
+import { db } from '@/lib/db';
+import { NotificationType } from '@prisma/client';
 
 export async function createNotification({
   userId,
+  type,
   title,
   message,
-  type,
-}: CreateNotificationParams) {
+}: {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+}) {
   try {
-    const notification = await prisma.notification.create({
+    const notification = await db.notification.create({
       data: {
         userId,
+        type,
         title,
         message,
-        type,
+        isRead: false,
       },
     });
     return notification;
@@ -31,45 +29,55 @@ export async function createNotification({
   }
 }
 
-export async function createBookingNotification(
-  userId: string,
-  eventTitle: string,
-  status: string
-) {
-  const title = 'Booking Update';
+export async function createBookingNotification({
+  userId,
+  eventTitle,
+  status,
+}: {
+  userId: string;
+  eventTitle: string;
+  status: string;
+}) {
   const message = `Your booking for "${eventTitle}" has been ${status.toLowerCase()}.`;
   return createNotification({
     userId,
-    title,
+    type: NotificationType.BOOKING_UPDATE,
+    title: 'Booking Update',
     message,
-    type: 'BOOKING_UPDATE',
   });
 }
 
-export async function createEventReminderNotification(
-  userId: string,
-  eventTitle: string,
-  eventDate: Date
-) {
-  const title = 'Event Reminder';
-  const message = `Don't forget! "${eventTitle}" is happening tomorrow at ${eventDate.toLocaleTimeString()}.`;
+export async function createEventReminderNotification({
+  userId,
+  eventTitle,
+  eventDate,
+}: {
+  userId: string;
+  eventTitle: string;
+  eventDate: Date;
+}) {
+  const message = `Reminder: "${eventTitle}" is happening tomorrow at ${eventDate.toLocaleTimeString()}.`;
   return createNotification({
     userId,
-    title,
+    type: NotificationType.EVENT_REMINDER,
+    title: 'Event Reminder',
     message,
-    type: 'EVENT_REMINDER',
   });
 }
 
-export async function createSystemNotification(
-  userId: string,
-  title: string,
-  message: string
-) {
+export async function createSystemNotification({
+  userId,
+  title,
+  message,
+}: {
+  userId: string;
+  title: string;
+  message: string;
+}) {
   return createNotification({
     userId,
+    type: NotificationType.SYSTEM,
     title,
     message,
-    type: 'SYSTEM',
   });
 } 

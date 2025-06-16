@@ -14,16 +14,22 @@ const bookingSchema = z.object({
   phone: z.string().min(1),
 });
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const body = await request.json();
-    const { eventId, quantity, name, email, phone } = bookingSchema.parse(body);
+    const body = await req.json();
+    const { eventId, quantity } = body;
 
+    if (!eventId || !quantity) {
+      return new NextResponse('Missing required fields', { status: 400 });
+    }
+
+    // Check if event exists
     const event = await prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -32,29 +38,31 @@ export async function POST(request: Request) {
       return new NextResponse('Event not found', { status: 404 });
     }
 
+    // Create booking
     const booking = await prisma.booking.create({
       data: {
-        eventId,
         userId: session.user.id,
-        status: 'PENDING',
-        quantity: quantity,
-      },
-      include: {
-        event: true,
+        eventId,
+        quantity: parseInt(quantity),
+        status: BookingStatus.PENDING,
       },
     });
 
     // Create notification for the booking
-    await createBookingNotification(session.user.id, event.title, 'PENDING');
+    await createBookingNotification({
+      userId: session.user.id,
+      eventTitle: event.title,
+      status: BookingStatus.PENDING,
+    });
 
     return NextResponse.json(booking);
   } catch (error) {
-    console.error('Error creating booking:', error);
+    console.error('[BOOKINGS_POST]', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -62,12 +70,18 @@ export async function GET(request: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const eventId = searchParams.get('eventId');
+    const userId = searchParams.get('userId');
+
     const bookings = await prisma.booking.findMany({
       where: {
-        userId: session.user.id,
+        ...(eventId ? { eventId } : {}),
+        ...(userId ? { userId } : {}),
       },
       include: {
         event: true,
+        user: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -81,25 +95,25 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const body = await request.json();
+    const body = await req.json();
     const { bookingId, status } = body;
 
     if (!bookingId || !status) {
       return new NextResponse('Missing required fields', { status: 400 });
     }
 
+    // Check if booking exists
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        event: true,
-      },
+      include: { event: true },
     });
 
     if (!booking) {
@@ -111,20 +125,18 @@ export async function PATCH(request: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    // Update booking status
     const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: { status: status as BookingStatus },
-      include: {
-        event: true,
-      },
     });
 
-    // Create notification for the booking status update
-    await createBookingNotification(
-      booking.userId,
-      booking.event.title,
-      status
-    );
+    // Create notification for booking status update
+    await createBookingNotification({
+      userId: booking.userId,
+      eventTitle: booking.event.title,
+      status: status as BookingStatus,
+    });
 
     return NextResponse.json(updatedBooking);
   } catch (error) {

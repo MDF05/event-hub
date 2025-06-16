@@ -23,20 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User } from "@prisma/client";
-
-interface UserWithPreferences extends User {
-  preferences?: any;
-  phone?: string | null;
-  address?: string | null;
-  bio?: string | null;
-  gender?: string | null;
-  dateOfBirth?: Date | null;
-  occupation?: string | null;
-  company?: string | null;
-  website?: string | null;
-  socialLinks?: any;
-}
+import { UserWithPreferences } from "@/types/user";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -272,7 +259,7 @@ export default function ProfileForm({ user, onUpdate }: ProfileFormProps) {
                 <FormItem>
                   <FormLabel>Facebook</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your Facebook profile" {...field} />
+                    <Input placeholder="Enter your Facebook URL" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -286,7 +273,7 @@ export default function ProfileForm({ user, onUpdate }: ProfileFormProps) {
                 <FormItem>
                   <FormLabel>Twitter</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your Twitter profile" {...field} />
+                    <Input placeholder="Enter your Twitter URL" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -300,7 +287,7 @@ export default function ProfileForm({ user, onUpdate }: ProfileFormProps) {
                 <FormItem>
                   <FormLabel>LinkedIn</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your LinkedIn profile" {...field} />
+                    <Input placeholder="Enter your LinkedIn URL" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -314,7 +301,7 @@ export default function ProfileForm({ user, onUpdate }: ProfileFormProps) {
                 <FormItem>
                   <FormLabel>Instagram</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your Instagram profile" {...field} />
+                    <Input placeholder="Enter your Instagram URL" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

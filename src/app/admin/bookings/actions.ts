@@ -3,13 +3,14 @@
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { BookingStatus } from '@prisma/client';
+import { createBookingNotification } from '@/lib/notifications';
 
 export async function getBookings() {
   try {
     const bookings = await db.booking.findMany({
       include: {
-        user: true,
         event: true,
+        user: true,
       },
       orderBy: {
         createdAt: 'desc',
@@ -25,13 +26,23 @@ export async function getBookings() {
 export async function updateBookingStatus(bookingId: string, status: BookingStatus) {
   try {
     const booking = await db.booking.update({
-      where: {
-        id: bookingId,
-      },
+      where: { id: bookingId },
       data: {
         status,
       },
+      include: {
+        event: true,
+        user: true,
+      },
     });
+
+    // Create notification for booking status update
+    await createBookingNotification({
+      userId: booking.userId,
+      eventTitle: booking.event.title,
+      status,
+    });
+
     revalidatePath('/admin/bookings');
     return booking;
   } catch (error) {
