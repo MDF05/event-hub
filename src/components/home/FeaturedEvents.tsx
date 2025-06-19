@@ -26,6 +26,8 @@ export function FeaturedEvents() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
+  console.log("data")
+
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -75,12 +77,13 @@ export function FeaturedEvents() {
     );
   }
 
-  console.log("asyik");
+ 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {events.map((event) => (
-        <EventCard key={event.id} event={event} />
-      ))}
-    </div>
+    // <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    //   {events.map((event) => (
+    //     <EventCard key={event.id} event={event} />
+    //   ))}
+    // </div>
+    <div>asu</div>
   );
 } 

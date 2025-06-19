@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
