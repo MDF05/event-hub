@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { EventCard } from '@/components/EventCard';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+
 
 interface Event {
   id: string;
@@ -15,7 +14,7 @@ interface Event {
     name: string;
   };
   price: number;
-  imageUrl: string | null;
+  imageUrl: string | null;  
   _count: {
     bookings: number;
     reviews: number;
@@ -26,7 +25,7 @@ export function FeaturedEvents() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
-  console.log("data")
+  
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -77,6 +76,7 @@ export function FeaturedEvents() {
     );
   }
 
+  console.log(events)
  
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
